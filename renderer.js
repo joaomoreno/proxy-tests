@@ -2,6 +2,8 @@
 // be executed in the renderer process for that window.
 // All of the Node.js APIs are available in this process.
 
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
@@ -106,6 +108,15 @@ function runNode(requestUrl, proxyUrl = '', strictSSL = true) {
   });
 }
 
+let REQUESTS = 0;
+function runElectron(requestUrl) {
+  return new Promise(resolve => {
+    const requestId = `req${REQUESTS++}`;
+    ipc.once(requestId, (event, message) => resolve(message));
+    ipc.send('url', requestId, requestUrl);
+  });
+}
+
 function run(proxyUrl) {
   resultsElement.textContent = 'Running tests...';
 
@@ -119,7 +130,9 @@ function run(proxyUrl) {
     ['HTTP Node Agent', runNode(httpUrl, proxyUrl)],
     ['HTTPS Node Agent', runNode(httpsUrl, proxyUrl)],
     ['HTTP Node Agent (not strict)', runNode(httpUrl, proxyUrl, false)],
-    ['HTTPS Node Agent (not strict)', runNode(httpsUrl, proxyUrl, false)]
+    ['HTTPS Node Agent (not strict)', runNode(httpsUrl, proxyUrl, false)],
+    ['HTTP Electron', runElectron(httpUrl)],
+    ['HTTPS Electron', runElectron(httpsUrl)]
   ];
 
   const promises = tests
@@ -127,7 +140,9 @@ function run(proxyUrl) {
 
   Promise.all(promises).then(results => {
     const textarea = document.createElement('textarea');
-    textarea.value = results.join('\n');
+    textarea.value = `| Test | Status | Hash or Error |
+|---|---|---|
+${results.join('\n')}`
     resultsElement.innerHTML = '';
     resultsElement.appendChild(textarea);
   });

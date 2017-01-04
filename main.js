@@ -1,19 +1,22 @@
 const electron = require('electron')
+const ipc = electron.ipcMain
 // Module to control application life.
 const app = electron.app
+const net = electron.net;
 // Module to create native browser window.
 const BrowserWindow = electron.BrowserWindow
 
 const path = require('path')
 const url = require('url')
+const crypto = require('crypto');
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
 
-function createWindow () {
+function createWindow() {
   // Create the browser window.
-  mainWindow = new BrowserWindow({width: 800, height: 600})
+  mainWindow = new BrowserWindow({ width: 800, height: 600 })
 
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
@@ -23,7 +26,7 @@ function createWindow () {
   }))
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.openDevTools()
 
   // Emitted when the window is closed.
   mainWindow.on('closed', function () {
@@ -58,3 +61,44 @@ app.on('activate', function () {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+function hash(contents) {
+  return crypto.createHash('sha1').update(contents).digest('hex');
+}
+function request(requestUrl) {
+  return new Promise(resolve => {
+    const req = net.request(requestUrl);
+    req.on('response', (res) => {
+      let buffer = [];
+      res.on('data', d => buffer.push(d));
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          result: hash(buffer.join(''))
+        });
+      });
+      res.on('error', (err) => {
+        console.log(err);
+
+        resolve({
+          status: 0,
+          result: 'Error'
+        });
+      });
+    })
+    req.on('error', (err) => {
+      console.log(err);
+
+      resolve({
+        status: 0,
+        result: 'Error'
+      });
+    });
+    req.end();
+  });
+}
+
+
+ipc.on('url', (event, requestId, requestUrl) => {
+  request(requestUrl).then(msg => event.sender.send(requestId, msg));
+});
