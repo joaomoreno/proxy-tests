@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
+const url = require('url');
 const HttpProxyAgent = require('http-proxy-agent');
 const HttpsProxyAgent = require('https-proxy-agent');
 
@@ -39,12 +40,60 @@ function runXHR(url) {
   });
 }
 
+function runNode(requestUrl, rejectUnauthorized = true) {
+  return new Promise(resolve => {
+    const endpoint = url.parse(requestUrl);
+    const rawRequest = endpoint.protocol === 'https:' ? https.request : http.request;
+    const opts = {
+      hostname: endpoint.hostname,
+      port: endpoint.port ? parseInt(endpoint.port) : (endpoint.protocol === 'https:' ? 443 : 80),
+      path: endpoint.path,
+      method: 'GET',
+      rejectUnauthorized
+      // agent: options.agent,
+    };
+
+    req = rawRequest(opts, res => {
+      let buffer = [];
+      res.on('data', d => buffer.push(d));
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          result: hash(buffer.join(''))
+        });
+      });
+      res.on('error', (err) => {
+        console.log(err);
+
+        resolve({
+          status: 0,
+          result: 'Error'
+        });
+      });
+    });
+
+    req.on('error', err => {
+      console.log(err);
+
+      resolve({
+        status: 0,
+        result: 'Error'
+      });
+    });
+    req.end();
+  });
+}
+
 function run(proxyUrl) {
   resultsElement.textContent = 'Running tests...';
 
   const tests = [
     ['HTTP XHR', runXHR(httpUrl)],
-    ['HTTPS XHR', runXHR(httpsUrl)]
+    ['HTTPS XHR', runXHR(httpsUrl)],
+    ['HTTP Node', runNode(httpUrl)],
+    ['HTTPS Node', runNode(httpsUrl)],
+    ['HTTP Node (not strict)', runNode(httpUrl, false)],
+    ['HTTPS Node (not strict)', runNode(httpsUrl, false)]
   ];
 
   const promises = tests
