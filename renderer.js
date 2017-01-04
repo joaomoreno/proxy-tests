@@ -40,7 +40,29 @@ function runXHR(url) {
   });
 }
 
-function runNode(requestUrl, rejectUnauthorized = true) {
+function getProxyAgent(rawRequestURL, proxyURL, strictSSL) {
+  if (!proxyURL) {
+    return null;
+  }
+
+  const requestURL = url.parse(rawRequestURL);
+  const proxyEndpoint = url.parse(proxyURL);
+
+  if (!/^https?:$/.test(proxyEndpoint.protocol)) {
+    return null;
+  }
+
+  const opts = {
+    host: proxyEndpoint.hostname,
+    port: Number(proxyEndpoint.port),
+    auth: proxyEndpoint.auth,
+    rejectUnauthorized: strictSSL
+  };
+
+  return requestURL.protocol === 'http:' ? new HttpProxyAgent(opts) : new HttpsProxyAgent(opts);
+}
+
+function runNode(requestUrl, proxyUrl = '', strictSSL = true) {
   return new Promise(resolve => {
     const endpoint = url.parse(requestUrl);
     const rawRequest = endpoint.protocol === 'https:' ? https.request : http.request;
@@ -49,8 +71,8 @@ function runNode(requestUrl, rejectUnauthorized = true) {
       port: endpoint.port ? parseInt(endpoint.port) : (endpoint.protocol === 'https:' ? 443 : 80),
       path: endpoint.path,
       method: 'GET',
-      rejectUnauthorized
-      // agent: options.agent,
+      rejectUnauthorized: strictSSL,
+      agent: getProxyAgent(requestUrl, proxyUrl, strictSSL)
     };
 
     req = rawRequest(opts, res => {
@@ -92,8 +114,12 @@ function run(proxyUrl) {
     ['HTTPS XHR', runXHR(httpsUrl)],
     ['HTTP Node', runNode(httpUrl)],
     ['HTTPS Node', runNode(httpsUrl)],
-    ['HTTP Node (not strict)', runNode(httpUrl, false)],
-    ['HTTPS Node (not strict)', runNode(httpsUrl, false)]
+    ['HTTP Node (not strict)', runNode(httpUrl, null, false)],
+    ['HTTPS Node (not strict)', runNode(httpsUrl, null, false)],
+    ['HTTP Node Agent', runNode(httpUrl, proxyUrl)],
+    ['HTTPS Node Agent', runNode(httpsUrl, proxyUrl)],
+    ['HTTP Node Agent (not strict)', runNode(httpUrl, proxyUrl, false)],
+    ['HTTPS Node Agent (not strict)', runNode(httpsUrl, proxyUrl, false)]
   ];
 
   const promises = tests
