@@ -145,6 +145,8 @@ function run(proxyUrl) {
 ${results.join('\n')}`
     resultsElement.innerHTML = '';
     resultsElement.appendChild(textarea);
+
+    startButton.disabled = false;
   });
 }
 
