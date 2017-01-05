@@ -143,7 +143,7 @@ function run(proxyUrl) {
   ];
 
   const promises = tests.map(([name, promise]) => {
-    return timeout(promise, 5000, { status: '0', result: 'Timeout' })
+    return timeout(promise, 10000, { status: '0', result: 'Timeout' })
       .then(r => `| ${name} | ${r.status} | ${r.result} |`);
   });
 
