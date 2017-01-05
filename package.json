@@ -16,7 +16,9 @@
   ],
   "author": "Microsoft",
   "devDependencies": {
-    "electron": "^1.4.1"
+    "electron": "^1.4.1",
+    "electron-zip-packager": "^4.0.1",
+    "eslint": "^3.12.2"
   },
   "dependencies": {
     "http-proxy-agent": "^1.0.0",

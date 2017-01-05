@@ -15,8 +15,8 @@ const startButton = document.getElementById('start');
 const resultsElement = document.getElementById('results');
 const proxyInput = document.getElementById('proxy');
 
-const httpUrl = 'http://code.visualstudio.com/docs';
-const httpsUrl = 'https://code.visualstudio.com/docs';
+const httpUrl = 'http://code.visualstudio.com/docs/tools/vscecli';
+const httpsUrl = 'https://code.visualstudio.com/docs/tools/vscecli';
 
 function hash(contents) {
   return crypto.createHash('sha1').update(contents).digest('hex');
@@ -32,7 +32,7 @@ function runXHR(url) {
         result: 'Error'
       });
     };
-    xhr.onload = (e) => {
+    xhr.onload = () => {
       resolve({
         status: xhr.status,
         result: hash(xhr.response)
@@ -117,6 +117,13 @@ function runElectron(requestUrl) {
   });
 }
 
+function timeout(promise, millis, onTimeout) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => resolve(onTimeout), millis);
+    promise.then(resolve, reject);
+  });
+}
+
 function run(proxyUrl) {
   resultsElement.textContent = 'Running tests...';
 
@@ -135,14 +142,16 @@ function run(proxyUrl) {
     ['HTTPS Electron', runElectron(httpsUrl)]
   ];
 
-  const promises = tests
-    .map(([name, promise]) => promise.then(r => `| ${name} | ${r.status} | ${r.result} |`));
+  const promises = tests.map(([name, promise]) => {
+    return timeout(promise, 5000, { status: '0', result: 'Timeout' })
+      .then(r => `| ${name} | ${r.status} | ${r.result} |`);
+  });
 
   Promise.all(promises).then(results => {
     const textarea = document.createElement('textarea');
     textarea.value = `| Test | Status | Hash or Error |
 |---|---|---|
-${results.join('\n')}`
+${results.join('\n')}`;
     resultsElement.innerHTML = '';
     resultsElement.appendChild(textarea);
 
