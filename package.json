@@ -1,6 +1,6 @@
 {
   "name": "proxy-tests",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Proxy Tests",
   "main": "main.js",
   "scripts": {
