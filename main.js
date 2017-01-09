@@ -73,9 +73,9 @@ app.on('activate', function () {
 function hash(contents) {
   return crypto.createHash('sha1').update(contents).digest('hex');
 }
-function request(requestUrl) {
+function request(url, ca) {
   return new Promise(resolve => {
-    const req = net.request(requestUrl);
+    const req = net.request({ url, ca });
     req.on('response', (res) => {
       let buffer = [];
       res.on('data', d => buffer.push(d));
@@ -107,6 +107,6 @@ function request(requestUrl) {
 }
 
 
-ipc.on('url', (event, requestId, requestUrl) => {
-  request(requestUrl).then(msg => event.sender.send(requestId, msg));
+ipc.on('url', (event, requestId, requestUrl, ca) => {
+  request(requestUrl, ca).then(msg => event.sender.send(requestId, msg));
 });

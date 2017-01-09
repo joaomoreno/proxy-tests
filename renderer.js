@@ -8,12 +8,14 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const url = require('url');
+const fs = require('fs');
 const HttpProxyAgent = require('http-proxy-agent');
 const HttpsProxyAgent = require('https-proxy-agent');
 
 const startButton = document.getElementById('start');
 const resultsElement = document.getElementById('results');
 const proxyInput = document.getElementById('proxy');
+const cafileInput = document.getElementById('cafile');
 
 const httpUrl = 'http://code.visualstudio.com/docs/tools/vscecli';
 const httpsUrl = 'https://code.visualstudio.com/docs/tools/vscecli';
@@ -64,7 +66,7 @@ function getProxyAgent(rawRequestURL, proxyURL, strictSSL) {
   return requestURL.protocol === 'http:' ? new HttpProxyAgent(opts) : new HttpsProxyAgent(opts);
 }
 
-function runNode(requestUrl, proxyUrl = '', strictSSL = true) {
+function runNode(requestUrl, ca, proxyUrl = '', strictSSL = true) {
   return new Promise(resolve => {
     const endpoint = url.parse(requestUrl);
     const rawRequest = endpoint.protocol === 'https:' ? https.request : http.request;
@@ -74,7 +76,8 @@ function runNode(requestUrl, proxyUrl = '', strictSSL = true) {
       path: endpoint.path,
       method: 'GET',
       rejectUnauthorized: strictSSL,
-      agent: getProxyAgent(requestUrl, proxyUrl, strictSSL)
+      agent: getProxyAgent(requestUrl, proxyUrl, strictSSL),
+      ca
     };
 
     req = rawRequest(opts, res => {
@@ -109,11 +112,11 @@ function runNode(requestUrl, proxyUrl = '', strictSSL = true) {
 }
 
 let REQUESTS = 0;
-function runElectron(requestUrl) {
+function runElectron(requestUrl, ca) {
   return new Promise(resolve => {
     const requestId = `req${REQUESTS++}`;
     ipc.once(requestId, (event, message) => resolve(message));
-    ipc.send('url', requestId, requestUrl);
+    ipc.send('url', requestId, requestUrl, ca);
   });
 }
 
@@ -127,19 +130,25 @@ function timeout(promise, millis, onTimeout) {
 function run(proxyUrl) {
   resultsElement.textContent = 'Running tests...';
 
+  let ca = null;
+
+  if (cafileInput.value) {
+    ca = fs.readFileSync(cafileInput.files[0].path, 'utf8');
+  }
+
   const tests = [
     ['HTTP XHR', runXHR(httpUrl)],
     ['HTTPS XHR', runXHR(httpsUrl)],
-    ['HTTP Node', runNode(httpUrl)],
-    ['HTTPS Node', runNode(httpsUrl)],
-    ['HTTP Node (not strict)', runNode(httpUrl, null, false)],
-    ['HTTPS Node (not strict)', runNode(httpsUrl, null, false)],
-    ['HTTP Node Agent', runNode(httpUrl, proxyUrl)],
-    ['HTTPS Node Agent', runNode(httpsUrl, proxyUrl)],
-    ['HTTP Node Agent (not strict)', runNode(httpUrl, proxyUrl, false)],
-    ['HTTPS Node Agent (not strict)', runNode(httpsUrl, proxyUrl, false)],
-    ['HTTP Electron', runElectron(httpUrl)],
-    ['HTTPS Electron', runElectron(httpsUrl)]
+    ['HTTP Node', runNode(httpUrl, ca)],
+    ['HTTPS Node', runNode(httpsUrl, ca)],
+    ['HTTP Node (not strict)', runNode(httpUrl, ca, null, false)],
+    ['HTTPS Node (not strict)', runNode(httpsUrl, ca, null, false)],
+    ['HTTP Node Agent', runNode(httpUrl, ca, proxyUrl)],
+    ['HTTPS Node Agent', runNode(httpsUrl, ca, proxyUrl)],
+    ['HTTP Node Agent (not strict)', runNode(httpUrl, ca, proxyUrl, false)],
+    ['HTTPS Node Agent (not strict)', runNode(httpsUrl, ca, proxyUrl, false)],
+    ['HTTP Electron', runElectron(httpUrl, ca)],
+    ['HTTPS Electron', runElectron(httpsUrl, ca)]
   ];
 
   const promises = tests.map(([name, promise]) => {
